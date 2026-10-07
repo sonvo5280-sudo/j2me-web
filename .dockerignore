@@ -1,0 +1,7 @@
+node_modules
+dist
+build_java
+src_java
+.git
+.gitignore
+*.bak

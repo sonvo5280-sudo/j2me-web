@@ -1,0 +1,21 @@
+{
+  "name": "j2me-web-emulator",
+  "version": "1.0.0",
+  "description": "Trình giả lập Java J2ME WebAssembly trên nền web",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "start": "node server.js",
+    "app": "electron electron-main.cjs",
+    "preview": "vite preview"
+  },
+  "devDependencies": {
+    "electron": "^44.6.0",
+    "vite": "^8.3.3"
+  },
+  "dependencies": {
+    "sirv": "^3.0.2",
+    "ws": "^8.22.0"
+  }
+}

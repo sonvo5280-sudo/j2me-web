@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>J2ME Web Emulator - Trình Giả Lập Java Game</title>
+  <meta name="description" content="Trình giả lập Java J2ME WebAssembly trên trình duyệt web, chơi game .JAR cổ điển mượt mà không cần cài đặt.">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎮</text></svg>">
+</head>
+<body>
+  <div id="app">
+    <!-- Top Toolbar (Gọn gàng, có thể ẩn hoàn toàn khi muốn trải nghiệm thuần túy) -->
+    <header id="top-toolbar">
+      <div class="brand-section">
+        <span class="brand-badge">J2ME</span>
+        <div class="game-title-wrap">
+          <span class="status-dot"></span>
+          <span id="current-game-title">Đang nạp...</span>
+        </div>
+      </div>
+
+      <div class="toolbar-actions">
+        <button id="btn-games-modal" class="tb-btn" title="Danh sách trò chơi">
+          <span>📂</span> Game
+        </button>
+        <button id="btn-load-jar" class="tb-btn primary" title="Tải file .JAR từ máy tính">
+          <span>⚡</span> Nạp .JAR
+        </button>
+        <button id="btn-toggle-keypad" class="tb-btn" title="Bật/Tắt bàn phím ảo (Nhấn thủ công)">
+          <span>⌨️</span> Phím ảo: Bật
+        </button>
+        <button id="btn-mute" class="tb-btn" title="Bật/Tắt âm thanh">🔊</button>
+        <button id="btn-crt" class="tb-btn" title="Bật/Tắt hiệu ứng màn hình quét CRT">📺 CRT</button>
+        <button id="btn-fullscreen" class="tb-btn" title="Toàn màn hình">⛶</button>
+        <button id="btn-help-modal" class="tb-btn" title="Phím tắt PC">❓</button>
+      </div>
+    </header>
+
+    <!-- Nút thu gọn / mở lại thanh công cụ -->
+    <button id="btn-toggle-toolbar" title="Ẩn/Hiện thanh công cụ">▲</button>
+
+    <!-- Hidden file input for .jar files -->
+    <input type="file" id="jar-file-input" accept=".jar" style="display: none;">
+
+    <!-- ======================================================================
+         PHẦN TRÊN: MÀN HÌNH HIỂN THỊ GAME (SCREEN ON TOP)
+         ====================================================================== -->
+    <main id="screen-area">
+      <div class="screen-wrapper">
+        <canvas id="display" tabindex="0" style="display: none;"></canvas>
+        <div class="crt-overlay"></div>
+      </div>
+
+      <!-- Màn hình trạng thái Loading -->
+      <div id="loading-indicator">
+        <div class="spinner"></div>
+        <div id="loading-text">Đang khởi tạo WebAssembly JVM...</div>
+      </div>
+
+      <!-- Khu vực nhận file Kéo & Thả (Drag & Drop) -->
+      <div id="drop-zone-overlay">
+        <div class="drop-icon">📥</div>
+        <div class="drop-text">Thả file .JAR vào đây để chơi ngay!</div>
+      </div>
+    </main>
+
+    <!-- ======================================================================
+         PHẦN DƯỚI: CỤM PHÍM ĐIỀU KHIỂN (KEYPAD ALWAYS ON BOTTOM)
+         ====================================================================== -->
+    <footer id="keypad-container" class="keypad-part">
+      <!-- Hàng trên: Các phím chức năng & D-Pad điều hướng -->
+      <div class="control-row">
+        <!-- Phím mềm trái -->
+        <button data-key="F1" class="key btn-func btn-softkey" title="Phím mềm trái (F1)">
+          <span class="key-lbl">L</span>
+          <span class="key-sub">F1</span>
+        </button>
+
+        <!-- Cụm D-Pad 5 hướng ở giữa -->
+        <div class="dpad-container">
+          <button data-key="ArrowUp" class="key dpad-key dpad-up" aria-label="Lên" title="Lên (▲)">▲</button>
+          <button data-key="ArrowLeft" class="key dpad-key dpad-left" aria-label="Trái" title="Trái (◄)">◄</button>
+          <button data-key="Enter" class="key dpad-key dpad-center" aria-label="OK" title="OK (Enter)">OK</button>
+          <button data-key="ArrowRight" class="key dpad-key dpad-right" aria-label="Phải" title="Phải (►)">►</button>
+          <button data-key="ArrowDown" class="key dpad-key dpad-down" aria-label="Xuống" title="Xuống (▼)">▼</button>
+        </div>
+
+        <!-- Phím mềm phải -->
+        <button data-key="F2" class="key btn-func btn-softkey" title="Phím mềm phải (F2)">
+          <span class="key-lbl">R</span>
+          <span class="key-sub">F2</span>
+        </button>
+      </div>
+
+      <!-- Bàn phím số chuẩn 3x4 -->
+      <div class="num-grid">
+        <button data-key="Digit1" class="key num-key" title="Phím 1"><span class="num">1</span><span class="sub">. _ @</span></button>
+        <button data-key="Digit2" class="key num-key" title="Phím 2 (ABC)"><span class="num">2</span><span class="sub">ABC</span></button>
+        <button data-key="Digit3" class="key num-key" title="Phím 3 (DEF)"><span class="num">3</span><span class="sub">DEF</span></button>
+
+        <button data-key="Digit4" class="key num-key" title="Phím 4 (GHI)"><span class="num">4</span><span class="sub">GHI</span></button>
+        <button data-key="Digit5" class="key num-key" title="Phím 5 (JKL)"><span class="num">5</span><span class="sub">JKL</span></button>
+        <button data-key="Digit6" class="key num-key" title="Phím 6 (MNO)"><span class="num">6</span><span class="sub">MNO</span></button>
+
+        <button data-key="Digit7" class="key num-key" title="Phím 7 (PQRS)"><span class="num">7</span><span class="sub">PQRS</span></button>
+        <button data-key="Digit8" class="key num-key" title="Phím 8 (TUV)"><span class="num">8</span><span class="sub">TUV</span></button>
+        <button data-key="Digit9" class="key num-key" title="Phím 9 (WXYZ)"><span class="num">9</span><span class="sub">WXYZ</span></button>
+
+        <button data-key="NumpadAsterisk" class="key num-key" title="Phím *"><span class="num">*</span><span class="sub">⇧</span></button>
+        <button data-key="Digit0" class="key num-key" title="Phím 0"><span class="num">0</span><span class="sub">+ ␣</span></button>
+        <button data-key="NumpadDivide" class="key num-key" title="Phím #"><span class="num">#</span><span class="sub">⇪</span></button>
+      </div>
+    </footer>
+
+    <!-- ======================================================================
+         MODALS (Kho Game & Hướng Dẫn Phím Tắt)
+         ====================================================================== -->
+    <!-- Modal Thư Viện Game -->
+    <div id="modal-games" class="modal-overlay">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div class="modal-title">🎮 Thư Viện Trò Chơi</div>
+          <button class="modal-close-btn" title="Đóng">&times;</button>
+        </div>
+        <div class="modal-body">
+          <div style="font-size: 13px; color: var(--text-muted); line-height: 1.5;">
+            Chọn game có sẵn bên dưới hoặc kéo thả bất kỳ file <code>.jar</code> nào vào màn hình.<br>
+            <span style="color: #4ade80;">🌐 Đã kích hoạt kết nối mạng:</span> Hỗ trợ đầy đủ các game Java Online (Ninja School, Ngọc Rồng, Avatar, Mobi Army...) thông qua WebSocket TCP Proxy.
+          </div>
+          <div id="games-list" class="game-list-container"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Modal Hướng Dẫn Phím Tắt PC -->
+    <div id="modal-help" class="modal-overlay">
+      <div class="modal-content">
+        <div class="modal-header">
+          <div class="modal-title">⌨️ Phím Tắt Bàn Phím Máy Tính</div>
+          <button class="modal-close-btn" title="Đóng">&times;</button>
+        </div>
+        <div class="modal-body">
+          <table class="shortcut-table">
+            <thead>
+              <tr>
+                <th>Thao tác J2ME</th>
+                <th>Phím tương ứng trên PC</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Di chuyển (D-Pad)</td>
+                <td><span class="kbd-badge">▲ ▼ ◄ ►</span> (Phím mũi tên)</td>
+              </tr>
+              <tr>
+                <td>Phím Chọn / OK</td>
+                <td><span class="kbd-badge">Enter</span></td>
+              </tr>
+              <tr>
+                <td>Phím mềm trái (L)</td>
+                <td><span class="kbd-badge">F1</span></td>
+              </tr>
+              <tr>
+                <td>Phím mềm phải (R)</td>
+                <td><span class="kbd-badge">F2</span></td>
+              </tr>
+              <tr>
+                <td>Hủy / Thoát (C)</td>
+                <td><span class="kbd-badge">Esc</span></td>
+              </tr>
+              <tr>
+                <td>Xóa ký tự (Xóa lùi / Tới)</td>
+                <td><span class="kbd-badge">Backspace</span> / <span class="kbd-badge">Delete</span></td>
+              </tr>
+              <tr>
+                <td>Dấu cách (Khoảng trắng)</td>
+                <td><span class="kbd-badge">Space</span></td>
+              </tr>
+              <tr>
+                <td>Gõ chữ & Ký tự</td>
+                <td><span class="kbd-badge">A - Z</span> (Gõ trực tiếp, không multi-tap)</td>
+              </tr>
+              <tr>
+                <td>Bàn phím số 0 - 9</td>
+                <td><span class="kbd-badge">0 - 9</span> hoặc phím số Numpad</td>
+              </tr>
+              <tr>
+                <td>Bật / Tắt phím ảo</td>
+                <td>Nhấn nút <b>⌨️ Phím ảo</b> trên thanh công cụ</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- CheerpJ WebAssembly JVM Loader -->
+  <script src="https://cjrtnc.leaningtech.com/20260317_2978/loader.js"></script>
+  <!-- Application Main Module -->
+  <script type="module" src="src/main.js"></script>
+</body>
+</html>
