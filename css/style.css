@@ -360,14 +360,14 @@ body.crt-enabled .crt-overlay {
 }
 
 /* ==========================================================================
-   BOTTOM SECTION: KEYPAD (Always Fixed on Bottom, Touch Optimized)
+   BOTTOM SECTION: KEYPAD (Modern Layout, Touch-Optimized, Compact)
    ========================================================================== */
 #keypad-container {
   flex-shrink: 0;
   width: 100%;
-  max-width: 420px;
+  max-width: 460px;
   margin: 0 auto;
-  padding: 8px 12px max(12px, env(safe-area-inset-bottom)) 12px;
+  padding: 6px 12px max(10px, env(safe-area-inset-bottom)) 12px;
   background: linear-gradient(180deg, rgba(18, 22, 34, 0.96) 0%, rgba(11, 14, 21, 0.99) 100%);
   border-top: 1px solid var(--border-color);
   border-radius: 18px 18px 0 0;
@@ -375,24 +375,121 @@ body.crt-enabled .crt-overlay {
   z-index: 30;
   display: flex;
   flex-direction: column;
-  gap: 8px;
   touch-action: none;
 }
 
-/* Keypad Upper Controls: Function Keys & 5-way D-Pad */
-.control-row {
+.keypad-grid-layout {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 10px;
-  padding: 2px 2px;
+  width: 100%;
 }
 
-/* 5-way Navigation D-Pad */
+/* 2 Cánh trái & phải */
+.keypad-wing {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 86px;
+  flex-shrink: 0;
+}
+
+/* Functional Buttons (Softkeys L & R, Nút mở bàn phím điện thoại) */
+.btn-func {
+  width: 100%;
+  height: 48px;
+  padding: 4px 6px;
+  background: linear-gradient(180deg, var(--key-bg-top), var(--key-bg-bot));
+  border: 1px solid var(--key-border);
+  box-shadow: var(--key-shadow);
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  touch-action: none;
+  transition: all 0.08s ease;
+}
+
+.btn-softkey .key-lbl {
+  font-family: var(--font-retro);
+  font-size: 16px;
+  font-weight: 700;
+  color: #38bdf8;
+}
+
+.btn-softkey .key-sub {
+  font-size: 10px;
+  color: var(--text-dim);
+}
+
+/* Nút icon Bàn phím ⌨️ (Mở bàn phím ảo điện thoại) */
+.btn-kb {
+  background: linear-gradient(180deg, #1e293b, #0f172a);
+  border: 1px solid rgba(0, 242, 254, 0.3);
+}
+
+.btn-kb .key-lbl {
+  font-size: 19px;
+  line-height: 1;
+}
+
+.btn-kb .key-sub {
+  font-size: 9.5px;
+  color: var(--accent-cyan);
+  font-weight: 600;
+}
+
+.btn-kb:hover {
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 10px rgba(0, 242, 254, 0.25);
+}
+
+/* Hàng phím *, # nằm cạnh nhau ở dưới phím mềm phải */
+.star-hash-row {
+  display: flex;
+  gap: 6px;
+  width: 100%;
+}
+
+.mini-key {
+  flex: 1;
+  height: 48px;
+  background: linear-gradient(180deg, var(--key-bg-top), var(--key-bg-bot));
+  border: 1px solid var(--key-border);
+  box-shadow: var(--key-shadow);
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  touch-action: none;
+  transition: all 0.08s ease;
+}
+
+.mini-key .num {
+  font-family: var(--font-retro);
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text-main);
+  line-height: 1;
+}
+
+/* Cụm trung tâm: 4 Phím di chuyển nằm ở dưới cùng, căn giữa */
+.keypad-center-dpad {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  flex: 1;
+}
+
 .dpad-container {
   display: grid;
-  grid-template-columns: 48px 48px 48px;
-  grid-template-rows: 40px 40px 40px;
+  grid-template-columns: 46px 46px 46px;
+  grid-template-rows: 38px 38px 38px;
   gap: 4px;
   justify-content: center;
   align-items: center;
@@ -449,75 +546,6 @@ body.crt-enabled .crt-overlay {
   grid-column: 2;
   grid-row: 3;
   border-radius: 6px 6px 12px 12px;
-}
-
-/* Functional Buttons (Softkeys L & R) */
-.btn-func {
-  flex: 1;
-  max-width: 90px;
-  height: 58px;
-  padding: 6px 10px;
-  background: linear-gradient(180deg, var(--key-bg-top), var(--key-bg-bot));
-  border: 1px solid var(--key-border);
-  box-shadow: var(--key-shadow);
-  border-radius: 10px;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  touch-action: none;
-  transition: all 0.08s ease;
-}
-
-.btn-softkey .key-lbl {
-  font-family: var(--font-retro);
-  font-size: 16px;
-  font-weight: 700;
-  color: #38bdf8;
-}
-
-.btn-softkey .key-sub {
-  font-size: 10px;
-  color: var(--text-dim);
-}
-
-/* Numeric 3x4 Keypad */
-.num-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 6px;
-}
-
-.num-key {
-  height: 42px;
-  background: linear-gradient(180deg, var(--key-bg-top), var(--key-bg-bot));
-  border: 1px solid var(--key-border);
-  box-shadow: var(--key-shadow);
-  border-radius: 8px;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  line-height: 1;
-  touch-action: none;
-  transition: all 0.08s ease;
-}
-
-.num-key .num {
-  font-family: var(--font-retro);
-  font-size: 17px;
-  font-weight: 700;
-  color: var(--text-main);
-}
-
-.num-key .sub {
-  font-size: 8px;
-  color: var(--text-dim);
-  letter-spacing: 0.5px;
-  margin-top: 1px;
 }
 
 /* Active / Pressed state on all keys */
@@ -989,19 +1017,22 @@ body.crt-enabled .crt-overlay {
     padding: 3px 8px;
   }
   #keypad-container {
-    padding: 6px 10px max(8px, env(safe-area-inset-bottom)) 10px;
+    padding: 4px 10px max(6px, env(safe-area-inset-bottom)) 10px;
+  }
+  .keypad-wing {
+    width: 76px;
     gap: 5px;
+  }
+  .keypad-wing .btn-func {
+    height: 40px;
+  }
+  .mini-key {
+    height: 40px;
   }
   .dpad-container {
     grid-template-columns: 42px 42px 42px;
     grid-template-rows: 34px 34px 34px;
     gap: 3px;
-  }
-  .btn-func {
-    height: 46px;
-  }
-  .num-key {
-    height: 36px;
   }
 }
 
@@ -1049,19 +1080,18 @@ body.crt-enabled .crt-overlay {
     border: none;
     box-shadow: none;
     pointer-events: none;
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: flex-end;
     z-index: 25;
   }
 
-  .control-row {
-    pointer-events: auto;
+  .keypad-grid-layout {
+    width: 100%;
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 6px;
+    justify-content: space-between;
+    align-items: flex-end;
+  }
+
+  .keypad-wing {
+    pointer-events: auto;
     background: rgba(14, 18, 28, 0.88);
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
@@ -1069,21 +1099,28 @@ body.crt-enabled .crt-overlay {
     border-radius: 14px;
     padding: 6px;
     box-shadow: 0 4px 18px rgba(0, 0, 0, 0.6);
+    width: 82px;
+    gap: 6px;
   }
 
-  .control-row .btn-func {
-    height: 32px;
-    width: 100%;
-    max-width: 130px;
-    border-radius: 8px;
+  .keypad-wing .btn-func {
+    height: 36px;
   }
 
-  .control-row .btn-func .key-lbl {
-    font-size: 14px;
+  .mini-key {
+    height: 36px;
   }
 
-  .control-row .btn-func .key-sub {
-    font-size: 8px;
+  .keypad-center-dpad {
+    pointer-events: auto;
+    background: rgba(14, 18, 28, 0.88);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    padding: 6px;
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.6);
+    flex: 0;
   }
 
   .dpad-container {
@@ -1091,32 +1128,12 @@ body.crt-enabled .crt-overlay {
     grid-template-rows: 35px 35px 35px;
     gap: 3px;
   }
+}
 
-  .num-grid {
-    pointer-events: auto;
-    background: rgba(14, 18, 28, 0.88);
-    backdrop-filter: blur(10px);
-    -webkit-backdrop-filter: blur(10px);
-    border: 1px solid var(--border-color);
-    border-radius: 14px;
-    padding: 6px;
-    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.6);
-    width: 165px;
-    gap: 3px;
-  }
-
-  .num-key {
-    height: 30px;
-    border-radius: 6px;
-  }
-
-  .num-key .num {
-    font-size: 14px;
-  }
-
-  .num-key .sub {
-    font-size: 7px;
-  }
+#btn-fps {
+  font-family: var(--font-retro);
+  font-weight: 600;
+  color: var(--accent-cyan);
 }
 
 /* ==========================================================================

@@ -23,6 +23,7 @@ let display = null;
 let screenCtx = null;
 let scaleSet = false;
 let globalLib = null;
+let currentRunningAppId = null;
 
 const keyRepeatManager = new KeyRepeatManager();
 window.evtQueue = evtQueue;
@@ -217,7 +218,6 @@ function setListeners() {
             }
 
             activePhysicalKeys.set(e.code, mapped);
-            highlightKeyFromCode(mapped.name, true);
 
             evtQueue.queueEvent({
                 kind: 'keydown',
@@ -229,7 +229,6 @@ function setListeners() {
         } else if (e.type === 'keyup') {
             const active = activePhysicalKeys.get(e.code) || mapped;
             activePhysicalKeys.delete(e.code);
-            highlightKeyFromCode(active.name, false);
 
             evtQueue.queueEvent({
                 kind: 'keyup',
@@ -247,7 +246,6 @@ function setListeners() {
     // Safety: Release all pressed keys when browser window loses focus
     window.addEventListener('blur', () => {
         for (const [code, mapped] of activePhysicalKeys.entries()) {
-            highlightKeyFromCode(mapped.name, false);
             evtQueue.queueEvent({
                 kind: 'keyup',
                 ...mapped,
@@ -258,7 +256,6 @@ function setListeners() {
         }
         activePhysicalKeys.clear();
         keyRepeatManager.reset();
-        document.querySelectorAll('.key.active').forEach(k => k.classList.remove('active'));
     });
 
     // Pointer events on canvas
@@ -378,8 +375,29 @@ function setFaviconFromBuffer(arrayBuffer) {
 }
 
 // ============================================================================
-// App Lifecycle & Storage Initialization
-// ============================================================================
+async function ensureAppFpsConfig(lib, appId) {
+    if (!lib || !appId) return;
+    const targetFps = localStorage.getItem('j2me_target_fps') || '30';
+    try {
+        const File = await lib.java.io.File;
+        const confDir = await new File("/files/" + appId + "/config");
+        await confDir.mkdirs();
+        const confFile = await new File("/files/" + appId + "/config/settings.conf");
+        let content = "";
+        const blob = await cjFileBlob("/files/" + appId + "/config/settings.conf");
+        if (blob) {
+            content = await blob.text();
+        }
+        const lines = content.split('\n').filter(l => l.trim() && !l.startsWith('fps:'));
+        lines.push('fps:' + targetFps);
+        const fw = await new (await lib.java.io.FileWriter)(confFile);
+        await fw.write(lines.join('\n') + '\n');
+        await fw.close();
+    } catch (e) {
+        console.warn("Lỗi đồng bộ FPS config:", e);
+    }
+}
+
 async function ensureAppInstalled(lib, appId) {
     let appFile = await cjFileBlob("/files/" + appId + "/app.jar");
     if (!appFile) {
@@ -394,6 +412,7 @@ async function ensureAppInstalled(lib, appId) {
             console.warn("importData init.zip error:", e);
         }
     }
+    await ensureAppFpsConfig(lib, appId);
 }
 
 // ============================================================================
@@ -759,6 +778,166 @@ function initUIControls() {
         };
     }
 
+    // FPS Selector (30 / 45 / 60 FPS, mặc định là 30 FPS)
+    const btnFps = document.getElementById('btn-fps');
+    const fpsLabel = document.getElementById('fps-label');
+    const FPS_OPTIONS = [30, 45, 60];
+    let currentFps = parseInt(localStorage.getItem('j2me_target_fps') || '30', 10);
+    if (!FPS_OPTIONS.includes(currentFps)) currentFps = 30;
+
+    function updateFpsDisplay(fps) {
+        if (fpsLabel) fpsLabel.textContent = fps + ' FPS';
+        if (btnFps) btnFps.title = `Tốc độ khung hình: ${fps} FPS (Bấm để chuyển 30 / 45 / 60 FPS)`;
+    }
+    updateFpsDisplay(currentFps);
+
+    if (btnFps) {
+        btnFps.onclick = async () => {
+            const idx = FPS_OPTIONS.indexOf(currentFps);
+            currentFps = FPS_OPTIONS[(idx + 1) % FPS_OPTIONS.length];
+            localStorage.setItem('j2me_target_fps', String(currentFps));
+            updateFpsDisplay(currentFps);
+
+            if (globalLib && currentRunningAppId) {
+                await ensureAppFpsConfig(globalLib, currentRunningAppId);
+            }
+        };
+    }
+
+    // Native Mobile Keyboard Opener (Icon "Bàn phím" ⌨️)
+    const btnOpenMobileKb = document.getElementById('btn-open-mobile-keyboard');
+    const mobileTextInput = document.getElementById('mobile-text-input');
+
+    if (btnOpenMobileKb && mobileTextInput) {
+        btnOpenMobileKb.addEventListener('pointerdown', (e) => {
+            // Kiểm tra: nếu trên máy tính thì không có gì xảy ra hết theo đúng yêu cầu
+            const isTouch = ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+            if (!isTouch) {
+                return;
+            }
+
+            e.preventDefault();
+            e.stopPropagation();
+
+            // Mở bàn phím ảo của điện thoại
+            mobileTextInput.value = '';
+            mobileTextInput.focus();
+        });
+
+        // Xử lý khi gõ trên bàn phím ảo điện thoại: tránh multi-tap khi gõ số
+        mobileTextInput.addEventListener('input', (e) => {
+            const val = mobileTextInput.value;
+            if (!val) return;
+
+            for (let i = 0; i < val.length; i++) {
+                const char = val[i];
+                const charCode = char.charCodeAt(0);
+
+                // Số 0-9: gửi trực tiếp ký tự số, tránh hoàn toàn multi-tap
+                if (char >= '0' && char <= '9') {
+                    const numCode = 48 + parseInt(char, 10);
+                    evtQueue.queueEvent({
+                        kind: 'keydown',
+                        code: numCode,
+                        symbol: char,
+                        platformCode: charCode,
+                        normalizedCode: charCode,
+                        isTypingKey: true,
+                        ctrlKey: false,
+                        shiftKey: false,
+                        args: [numCode, char, false, false]
+                    });
+                    evtQueue.queueEvent({
+                        kind: 'keyup',
+                        code: numCode,
+                        symbol: char,
+                        platformCode: charCode,
+                        normalizedCode: charCode,
+                        isTypingKey: true,
+                        ctrlKey: false,
+                        shiftKey: false,
+                        args: [numCode, char, false, false]
+                    });
+                } else {
+                    // Chữ cái hoặc ký tự khác: gõ thẳng vào J2ME
+                    evtQueue.queueEvent({
+                        kind: 'keydown',
+                        code: charCode,
+                        symbol: char,
+                        platformCode: charCode,
+                        normalizedCode: charCode,
+                        isTypingKey: true,
+                        ctrlKey: false,
+                        shiftKey: false,
+                        args: [charCode, char, false, false]
+                    });
+                    evtQueue.queueEvent({
+                        kind: 'keyup',
+                        code: charCode,
+                        symbol: char,
+                        platformCode: charCode,
+                        normalizedCode: charCode,
+                        isTypingKey: true,
+                        ctrlKey: false,
+                        shiftKey: false,
+                        args: [charCode, char, false, false]
+                    });
+                }
+            }
+            mobileTextInput.value = '';
+        });
+
+        mobileTextInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Backspace') {
+                evtQueue.queueEvent({
+                    kind: 'keydown',
+                    code: 8,
+                    symbol: '\x08',
+                    platformCode: -8,
+                    normalizedCode: -8,
+                    isTypingKey: true,
+                    ctrlKey: false,
+                    shiftKey: false,
+                    args: [8, '\x08', false, false]
+                });
+                evtQueue.queueEvent({
+                    kind: 'keyup',
+                    code: 8,
+                    symbol: '\x08',
+                    platformCode: -8,
+                    normalizedCode: -8,
+                    isTypingKey: true,
+                    ctrlKey: false,
+                    shiftKey: false,
+                    args: [8, '\x08', false, false]
+                });
+            } else if (e.key === 'Enter') {
+                evtQueue.queueEvent({
+                    kind: 'keydown',
+                    code: 13,
+                    symbol: '\x00',
+                    platformCode: -5,
+                    normalizedCode: -5,
+                    ctrlKey: false,
+                    shiftKey: false,
+                    args: [13, '\x00', false, false]
+                });
+                evtQueue.queueEvent({
+                    kind: 'keyup',
+                    code: 13,
+                    symbol: '\x00',
+                    platformCode: -5,
+                    normalizedCode: -5,
+                    ctrlKey: false,
+                    shiftKey: false,
+                    args: [13, '\x00', false, false]
+                });
+                mobileTextInput.blur();
+                if (display) display.focus();
+            }
+        });
+    }
+
     // Ensure all toolbar buttons yield focus back to game display immediately
     document.querySelectorAll('.tb-btn, #btn-toggle-toolbar').forEach(btn => {
         btn.addEventListener('focus', () => {
@@ -1101,6 +1280,7 @@ async function init() {
 
     let args;
     if (appId) {
+        currentRunningAppId = appId;
         localStorage.setItem('j2me_last_played_app', appId);
         if (loadingText) loadingText.textContent = "Đang nạp dữ liệu game: " + appId + "...";
         await ensureAppInstalled(globalLib, appId);

@@ -30,6 +30,9 @@
         <button id="btn-stop-game" class="tb-btn" title="Dừng trò chơi hiện tại và quay về màn hình chờ" style="display: none;">
           <span>⏹️</span> <span class="btn-text">Đổi game</span>
         </button>
+        <button id="btn-fps" class="tb-btn" title="Tùy chọn tốc độ khung hình (Mặc định: 30 FPS)">
+          <span>⚡</span> <span id="fps-label" class="btn-text">30 FPS</span>
+        </button>
         <button id="btn-toggle-keypad" class="tb-btn" title="Bật/Tắt bàn phím ảo (Nhấn thủ công)">
           <span>⌨️</span> <span class="btn-text">Phím: Bật</span>
         </button>
@@ -100,50 +103,47 @@
     </main>
 
     <!-- ======================================================================
-         PHẦN DƯỚI: CỤM PHÍM ĐIỀU KHIỂN (KEYPAD ALWAYS ON BOTTOM)
+         PHẦN DƯỚI: CỤM PHÍM ĐIỀU KHIỂN (KEYPAD TỐI ƯU CẢM ỨNG MỚI)
          ====================================================================== -->
     <footer id="keypad-container" class="keypad-part">
-      <!-- Hàng trên: Các phím chức năng & D-Pad điều hướng -->
-      <div class="control-row">
-        <!-- Phím mềm trái -->
-        <button data-key="F1" class="key btn-func btn-softkey" title="Phím mềm trái (F1)">
-          <span class="key-lbl">L</span>
-          <span class="key-sub">F1</span>
-        </button>
+      <!-- Hidden Input để kích hoạt bàn phím ảo điện thoại khi bấm icon bàn phím -->
+      <input type="text" id="mobile-text-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="text" style="position: absolute; opacity: 0; pointer-events: none; width: 0; height: 0; left: -9999px;">
 
-        <!-- Cụm D-Pad 5 hướng ở giữa -->
-        <div class="dpad-container">
-          <button data-key="ArrowUp" class="key dpad-key dpad-up" aria-label="Lên" title="Lên (▲)">▲</button>
-          <button data-key="ArrowLeft" class="key dpad-key dpad-left" aria-label="Trái" title="Trái (◄)">◄</button>
-          <button data-key="Enter" class="key dpad-key dpad-center" aria-label="OK" title="OK (Enter)">OK</button>
-          <button data-key="ArrowRight" class="key dpad-key dpad-right" aria-label="Phải" title="Phải (►)">►</button>
-          <button data-key="ArrowDown" class="key dpad-key dpad-down" aria-label="Xuống" title="Xuống (▼)">▼</button>
+      <div class="keypad-grid-layout">
+        <!-- Cánh trái: Phím mềm L & Nút Bàn phím ảo điện thoại ở bên dưới -->
+        <div class="keypad-wing wing-left">
+          <button data-key="F1" class="key btn-func btn-softkey" title="Phím mềm trái (F1)">
+            <span class="key-lbl">L</span>
+            <span class="key-sub">F1</span>
+          </button>
+          <button id="btn-open-mobile-keyboard" class="key btn-func btn-kb" title="Mở bàn phím ảo điện thoại (Không multi-tap)">
+            <span class="key-lbl">⌨️</span>
+            <span class="key-sub">Phím</span>
+          </button>
         </div>
 
-        <!-- Phím mềm phải -->
-        <button data-key="F2" class="key btn-func btn-softkey" title="Phím mềm phải (F2)">
-          <span class="key-lbl">R</span>
-          <span class="key-sub">F2</span>
-        </button>
-      </div>
+        <!-- Cụm trung tâm: 4 Phím di chuyển nằm ở dưới cùng, căn giữa (kèm nút OK ở giữa) -->
+        <div class="keypad-center-dpad">
+          <div class="dpad-container">
+            <button data-key="ArrowUp" class="key dpad-key dpad-up" aria-label="Lên" title="Lên (▲)">▲</button>
+            <button data-key="ArrowLeft" class="key dpad-key dpad-left" aria-label="Trái" title="Trái (◄)">◄</button>
+            <button data-key="Enter" class="key dpad-key dpad-center" aria-label="OK" title="OK (Enter)">OK</button>
+            <button data-key="ArrowRight" class="key dpad-key dpad-right" aria-label="Phải" title="Phải (►)">►</button>
+            <button data-key="ArrowDown" class="key dpad-key dpad-down" aria-label="Xuống" title="Xuống (▼)">▼</button>
+          </div>
+        </div>
 
-      <!-- Bàn phím số chuẩn 3x4 -->
-      <div class="num-grid">
-        <button data-key="Digit1" class="key num-key" title="Phím 1"><span class="num">1</span><span class="sub">. _ @</span></button>
-        <button data-key="Digit2" class="key num-key" title="Phím 2 (ABC)"><span class="num">2</span><span class="sub">ABC</span></button>
-        <button data-key="Digit3" class="key num-key" title="Phím 3 (DEF)"><span class="num">3</span><span class="sub">DEF</span></button>
-
-        <button data-key="Digit4" class="key num-key" title="Phím 4 (GHI)"><span class="num">4</span><span class="sub">GHI</span></button>
-        <button data-key="Digit5" class="key num-key" title="Phím 5 (JKL)"><span class="num">5</span><span class="sub">JKL</span></button>
-        <button data-key="Digit6" class="key num-key" title="Phím 6 (MNO)"><span class="num">6</span><span class="sub">MNO</span></button>
-
-        <button data-key="Digit7" class="key num-key" title="Phím 7 (PQRS)"><span class="num">7</span><span class="sub">PQRS</span></button>
-        <button data-key="Digit8" class="key num-key" title="Phím 8 (TUV)"><span class="num">8</span><span class="sub">TUV</span></button>
-        <button data-key="Digit9" class="key num-key" title="Phím 9 (WXYZ)"><span class="num">9</span><span class="sub">WXYZ</span></button>
-
-        <button data-key="NumpadAsterisk" class="key num-key" title="Phím *"><span class="num">*</span><span class="sub">⇧</span></button>
-        <button data-key="Digit0" class="key num-key" title="Phím 0"><span class="num">0</span><span class="sub">+ ␣</span></button>
-        <button data-key="NumpadDivide" class="key num-key" title="Phím #"><span class="num">#</span><span class="sub">⇪</span></button>
+        <!-- Cánh phải: Phím mềm R & Hàng phím *, # ở bên dưới nằm cạnh nhau -->
+        <div class="keypad-wing wing-right">
+          <button data-key="F2" class="key btn-func btn-softkey" title="Phím mềm phải (F2)">
+            <span class="key-lbl">R</span>
+            <span class="key-sub">F2</span>
+          </button>
+          <div class="star-hash-row">
+            <button data-key="NumpadAsterisk" class="key mini-key" title="Phím *"><span class="num">*</span></button>
+            <button data-key="NumpadDivide" class="key mini-key" title="Phím #"><span class="num">#</span></button>
+          </div>
+        </div>
       </div>
     </footer>
 

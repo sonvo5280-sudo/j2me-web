@@ -21,12 +21,8 @@ export function isVirtualKbdDisabled() {
 }
 
 export function highlightKeyFromCode(code, isDown) {
-    if (isKbdDisabled) return; // Không kích hoạt hiệu ứng phím ảo khi đã vô hiệu hóa
-    const el = document.querySelector(`.key[data-key="${code}"]`);
-    if (el) {
-        if (isDown) el.classList.add('active');
-        else el.classList.remove('active');
-    }
+    // Hoàn toàn không đồng bộ trạng thái active của phím ảo với phím vật lý
+    return;
 }
 
 export function initKbdListeners() {
