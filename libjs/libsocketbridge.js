@@ -120,62 +120,78 @@ function extractBytesFromJava(javaByteArray, off, len) {
 const activeSockets = new Map();
 let nextSocketId = 1;
 
+async function createSocketConnection(host, port, isSsl = false) {
+    const id = nextSocketId++;
+    const state = new SocketConnectionState(id, host, port);
+    activeSockets.set(id, state);
+
+    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const sslParam = isSsl ? '&ssl=true' : '';
+    const wsUrl = `${protocol}//${location.host}/tcp-proxy?host=${encodeURIComponent(host)}&port=${port}${sslParam}`;
+
+    return new Promise((resolve, reject) => {
+        try {
+            const ws = new WebSocket(wsUrl);
+            ws.binaryType = 'arraybuffer';
+            state.ws = ws;
+
+            let hasOpened = false;
+
+            ws.onopen = () => {
+                hasOpened = true;
+                state.isOpen = true;
+                console.log(`[SocketBridge] Online connection established to ${host}:${port} (SSL: ${Boolean(isSsl)}, ID: ${id})`);
+                resolve(id);
+            };
+
+            ws.onmessage = (event) => {
+                if (event.data instanceof ArrayBuffer) {
+                    state.pushData(new Uint8Array(event.data));
+                } else if (typeof event.data === 'string') {
+                    try {
+                        const parsed = JSON.parse(event.data);
+                        if (parsed.type === 'ready') return;
+                    } catch (_) {}
+                    const enc = new TextEncoder().encode(event.data);
+                    state.pushData(enc);
+                }
+            };
+
+            ws.onerror = (err) => {
+                console.warn(`[SocketBridge] Socket error on ${host}:${port}:`, err);
+                state.error = err;
+                if (!hasOpened) {
+                    activeSockets.delete(id);
+                    reject(new Error(`Cannot connect to game server ${host}:${port}`));
+                }
+            };
+
+            ws.onclose = () => {
+                console.log(`[SocketBridge] Socket closed for ${host}:${port} (ID: ${id})`);
+                state.close();
+            };
+        } catch (e) {
+            activeSockets.delete(id);
+            reject(e);
+        }
+    });
+}
+
 export default {
     async Java_pl_zb3_freej2me_bridge_network_SocketBridge_open(lib, host, port) {
-        const id = nextSocketId++;
-        const state = new SocketConnectionState(id, host, port);
-        activeSockets.set(id, state);
+        let isSsl = false;
+        if (typeof host === 'string' && host.startsWith('ssl:')) {
+            host = host.substring(4);
+            isSsl = true;
+        }
+        if (port === 443) {
+            isSsl = true;
+        }
+        return createSocketConnection(host, port, isSsl);
+    },
 
-        const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${location.host}/tcp-proxy?host=${encodeURIComponent(host)}&port=${port}`;
-
-        return new Promise((resolve, reject) => {
-            try {
-                const ws = new WebSocket(wsUrl);
-                ws.binaryType = 'arraybuffer';
-                state.ws = ws;
-
-                let hasOpened = false;
-
-                ws.onopen = () => {
-                    hasOpened = true;
-                    state.isOpen = true;
-                    console.log(`[SocketBridge] Online connection established to ${host}:${port} (ID: ${id})`);
-                    resolve(id);
-                };
-
-                ws.onmessage = (event) => {
-                    if (event.data instanceof ArrayBuffer) {
-                        state.pushData(new Uint8Array(event.data));
-                    } else if (typeof event.data === 'string') {
-                        // Handshake text message từ server proxy (ví dụ {"type":"ready"})
-                        try {
-                            const parsed = JSON.parse(event.data);
-                            if (parsed.type === 'ready') return;
-                        } catch (_) {}
-                        const enc = new TextEncoder().encode(event.data);
-                        state.pushData(enc);
-                    }
-                };
-
-                ws.onerror = (err) => {
-                    console.warn(`[SocketBridge] Socket error on ${host}:${port}:`, err);
-                    state.error = err;
-                    if (!hasOpened) {
-                        activeSockets.delete(id);
-                        reject(new Error(`Cannot connect to game server ${host}:${port}`));
-                    }
-                };
-
-                ws.onclose = () => {
-                    console.log(`[SocketBridge] Socket closed for ${host}:${port} (ID: ${id})`);
-                    state.close();
-                };
-            } catch (e) {
-                activeSockets.delete(id);
-                reject(e);
-            }
-        });
+    async Java_pl_zb3_freej2me_bridge_network_SocketBridge_openSsl(lib, host, port, isSsl) {
+        return createSocketConnection(host, port, Boolean(isSsl));
     },
 
     async Java_pl_zb3_freej2me_bridge_network_SocketBridge_read(lib, socketId) {

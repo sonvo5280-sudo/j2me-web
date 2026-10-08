@@ -458,12 +458,81 @@ export async function installAndPlayJar(file) {
             await lfw.close();
         }
 
+        // Save last played app
+        localStorage.setItem('j2me_last_played_app', appId);
+
         // Reboot into the new game!
         location.href = '?app=' + encodeURIComponent(appId);
     } catch (err) {
         console.error("Lỗi cài đặt game:", err);
         alert("Lỗi cài đặt file .jar: " + err.message);
         if (indicator) indicator.style.display = "none";
+    }
+}
+
+// Xóa đệ quy file/thư mục trong hệ thống tệp ảo CheerpJ
+async function deleteJavaFileRecursive(file) {
+    if (!file) return;
+    try {
+        if (await file.isDirectory()) {
+            const children = await file.listFiles();
+            if (children) {
+                for (let i = 0; i < children.length; i++) {
+                    await deleteJavaFileRecursive(children[i]);
+                }
+            }
+        }
+        await file.delete();
+    } catch (e) {
+        console.warn("Lỗi khi xóa file:", e);
+    }
+}
+
+// Xóa bộ nhớ đệm (Record Management System / RMS) của trò chơi
+export async function clearAppRms(appId) {
+    if (!globalLib) return false;
+    try {
+        const File = await globalLib.java.io.File;
+        const rmsDir = await new File("/files/" + appId + "/rms");
+        if (await rmsDir.exists()) {
+            await deleteJavaFileRecursive(rmsDir);
+            await rmsDir.mkdirs();
+        }
+        return true;
+    } catch (e) {
+        console.error("Lỗi xóa RMS cho " + appId + ":", e);
+        return false;
+    }
+}
+
+// Gỡ cài đặt hoàn toàn trò chơi đã cài
+export async function uninstallApp(appId) {
+    if (!globalLib) return false;
+    try {
+        const File = await globalLib.java.io.File;
+        const appDir = await new File("/files/" + appId);
+        if (await appDir.exists()) {
+            await deleteJavaFileRecursive(appDir);
+        }
+
+        // Cập nhật danh sách apps.list
+        const listBlob = await cjFileBlob("/files/apps.list");
+        if (listBlob) {
+            const currentList = await listBlob.text();
+            const apps = currentList.trim().split("\n").filter(id => id && id.trim() !== appId);
+            const listFile = await new File("/files/apps.list");
+            const lfw = await new (await globalLib.java.io.FileWriter)(listFile);
+            await lfw.write(apps.join("\n") + (apps.length ? "\n" : ""));
+            await lfw.close();
+        }
+
+        if (localStorage.getItem('j2me_last_played_app') === appId) {
+            localStorage.removeItem('j2me_last_played_app');
+        }
+        return true;
+    } catch (e) {
+        console.error("Lỗi gỡ ứng dụng " + appId + ":", e);
+        return false;
     }
 }
 
@@ -508,6 +577,25 @@ function initUIControls() {
     const btnCrt = document.getElementById('btn-crt');
     const btnToggleTb = document.getElementById('btn-toggle-toolbar');
     const topToolbar = document.getElementById('top-toolbar');
+    const btnStopGame = document.getElementById('btn-stop-game');
+
+    // Nút dừng trò chơi / đổi game
+    if (btnStopGame) {
+        btnStopGame.onclick = () => {
+            localStorage.removeItem('j2me_last_played_app');
+            location.href = location.pathname;
+        };
+    }
+
+    // Nút trên màn hình Empty State
+    const btnEmptyGames = document.getElementById('btn-empty-games');
+    const btnEmptyLoadJar = document.getElementById('btn-empty-load-jar');
+    if (btnEmptyGames && btnGamesModal) {
+        btnEmptyGames.onclick = () => btnGamesModal.click();
+    }
+    if (btnEmptyLoadJar && fileInput) {
+        btnEmptyLoadJar.onclick = () => fileInput.click();
+    }
 
     // File input triggers
     if (btnLoadJar && fileInput) {
@@ -569,6 +657,73 @@ function initUIControls() {
             }
         };
     }
+
+    // Screen Wake Lock (Chống tắt màn hình khi treo game 24/7)
+    const btnWakeLock = document.getElementById('btn-wakelock');
+    let wakeLockSentinel = null;
+    let wakeLockEnabled = localStorage.getItem('j2me_wakelock_enabled') !== '0';
+
+    async function applyWakeLock() {
+        if (!('wakeLock' in navigator)) {
+            if (btnWakeLock) {
+                btnWakeLock.innerHTML = '<span>🔆</span> Sáng: K.Hỗ trợ';
+                btnWakeLock.title = "Trình duyệt này không hỗ trợ Screen Wake Lock API";
+            }
+            return;
+        }
+        if (wakeLockEnabled) {
+            try {
+                if (!wakeLockSentinel) {
+                    wakeLockSentinel = await navigator.wakeLock.request('screen');
+                    wakeLockSentinel.addEventListener('release', () => {
+                        wakeLockSentinel = null;
+                    });
+                }
+                if (btnWakeLock) {
+                    btnWakeLock.innerHTML = '<span>🔆</span> Sáng: Bật';
+                    btnWakeLock.classList.add('active');
+                    btnWakeLock.title = "Chống tắt màn hình đang BẬT: Màn hình sẽ luôn sáng để treo game";
+                }
+            } catch (err) {
+                console.warn('[WakeLock] Không thể yêu cầu giữ màn hình:', err);
+            }
+        } else {
+            if (wakeLockSentinel) {
+                try {
+                    await wakeLockSentinel.release();
+                } catch (_) {}
+                wakeLockSentinel = null;
+            }
+            if (btnWakeLock) {
+                btnWakeLock.innerHTML = '<span>🌙</span> Sáng: Tắt';
+                btnWakeLock.classList.remove('active');
+                btnWakeLock.title = "Chống tắt màn hình đang TẮT: Thiết bị sẽ tự tắt màn hình theo cài đặt máy";
+            }
+        }
+    }
+
+    if (btnWakeLock) {
+        btnWakeLock.onclick = async () => {
+            wakeLockEnabled = !wakeLockEnabled;
+            localStorage.setItem('j2me_wakelock_enabled', wakeLockEnabled ? '1' : '0');
+            await applyWakeLock();
+        };
+    }
+
+    // Tự động yêu cầu lại WakeLock khi người dùng chuyển lại tab (sau khi bị suspend)
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible' && wakeLockEnabled) {
+            applyWakeLock();
+        }
+    });
+
+    // Kích hoạt ngay khi có tương tác đầu tiên (tránh browser policy chặn background wakeLock)
+    const enableWakeLockOnGesture = () => {
+        if (wakeLockEnabled) applyWakeLock();
+    };
+    window.addEventListener('click', enableWakeLockOnGesture, { once: true, passive: true });
+    window.addEventListener('touchstart', enableWakeLockOnGesture, { once: true, passive: true });
+    applyWakeLock();
 
     // Toggle Virtual Keypad Disable / Hide
     const btnToggleKeypad = document.getElementById('btn-toggle-keypad');
@@ -637,38 +792,108 @@ function initUIControls() {
     const gamesModal = document.getElementById('modal-games');
     const gamesListEl = document.getElementById('games-list');
 
-    if (btnGamesModal && gamesModal) {
-        btnGamesModal.onclick = async () => {
-            gamesModal.classList.add('show');
-            if (gamesListEl) {
-                gamesListEl.innerHTML = '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:12px;">Đang tải danh sách game...</div>';
-                const currentApp = sp.get('app') || 'Connect4';
-                const games = await getInstalledGames();
-                gamesListEl.innerHTML = '';
+    async function renderGamesModal() {
+        if (!gamesListEl) return;
+        gamesListEl.innerHTML = '<div style="color:var(--text-muted);font-size:13px;text-align:center;padding:12px;">Đang tải danh sách game...</div>';
+        const currentApp = sp.get('app') || localStorage.getItem('j2me_last_played_app') || '';
+        const games = await getInstalledGames();
+        gamesListEl.innerHTML = '';
 
-                games.forEach(g => {
-                    const card = document.createElement('div');
-                    card.className = 'game-card' + (g.appId === currentApp ? ' current' : '');
-                    card.innerHTML = `
-                        <div class="game-card-left">
-                            <img class="game-icon-img" src="${g.icon || 'data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'36\' height=\'36\' fill=\'%2300f2fe\' viewBox=\'0 0 16 16\'><path d=\'M11.5 6.027a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0zm-1.5 1.5a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1zm2.5-.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0zm-1.5 1.5a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1zM8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0zm.5 4.5v1.2a.3.3 0 0 1-.3.3H7a.3.3 0 0 1-.3-.3V4.5a.5.5 0 0 1 1 0z\'/></svg>'}" alt="Icon" />
-                            <div>
-                                <div class="game-card-name">${g.name}</div>
-                                <div class="game-card-badge">${g.appId === currentApp ? '● ĐANG CHƠI' : 'MIDlet'}</div>
-                            </div>
-                        </div>
-                        <button class="tb-btn ${g.appId === currentApp ? 'primary' : ''}">${g.appId === currentApp ? 'Đang chơi' : 'Chơi ngay'}</button>
-                    `;
-                    card.onclick = () => {
-                        if (g.appId !== currentApp) {
-                            location.href = '?app=' + encodeURIComponent(g.appId);
-                        } else {
-                            gamesModal.classList.remove('show');
-                        }
-                    };
-                    gamesListEl.appendChild(card);
-                });
+        if (games.length === 0) {
+            gamesListEl.innerHTML = '<div style="color:var(--text-dim);font-size:13px;text-align:center;padding:16px;">Chưa có trò chơi nào. Hãy nạp file .JAR để chơi!</div>';
+            return;
+        }
+
+        games.forEach(g => {
+            const isCurrent = g.appId === currentApp;
+            const card = document.createElement('div');
+            card.className = 'game-card' + (isCurrent ? ' current' : '');
+            card.innerHTML = `
+                <div class="game-card-left">
+                    <img class="game-icon-img" src="${g.icon || 'data:image/svg+xml;utf8,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'36\' height=\'36\' fill=\'%2300f2fe\' viewBox=\'0 0 16 16\'><path d=\'M11.5 6.027a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0zm-1.5 1.5a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1zm2.5-.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0zm-1.5 1.5a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1zM8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0zm.5 4.5v1.2a.3.3 0 0 1-.3.3H7a.3.3 0 0 1-.3-.3V4.5a.5.5 0 0 1 1 0z\'/></svg>'}" alt="Icon" />
+                    <div>
+                        <div class="game-card-name">${g.name}</div>
+                        <div class="game-card-badge">${isCurrent ? '● ĐANG CHƠI' : 'MIDlet'}</div>
+                    </div>
+                </div>
+                <div class="game-card-actions">
+                    <button class="tb-btn ${isCurrent ? 'primary' : ''} btn-action-play" title="Chơi trò này">${isCurrent ? 'Đang chơi' : 'Chơi ngay'}</button>
+                    <button class="tb-btn btn-clear-rms" title="Xóa bộ nhớ đệm (RMS / Save Game) của trò này">🧹 Xóa đệm</button>
+                    <button class="tb-btn btn-delete-app" title="Gỡ cài đặt trò chơi này">🗑️ Gỡ</button>
+                </div>
+            `;
+
+            // Chơi ngay
+            const btnPlay = card.querySelector('.btn-action-play');
+            if (btnPlay) {
+                btnPlay.onclick = (e) => {
+                    e.stopPropagation();
+                    if (!isCurrent) {
+                        localStorage.setItem('j2me_last_played_app', g.appId);
+                        location.href = '?app=' + encodeURIComponent(g.appId);
+                    } else {
+                        gamesModal.classList.remove('show');
+                    }
+                };
             }
+
+            // Xóa bộ nhớ đệm (RMS)
+            const btnClear = card.querySelector('.btn-clear-rms');
+            if (btnClear) {
+                btnClear.onclick = async (e) => {
+                    e.stopPropagation();
+                    if (confirm(`Bạn có chắc muốn xóa toàn bộ bộ nhớ đệm (Save game / RMS / Tài khoản) của trò chơi "${g.name}" không?`)) {
+                        const success = await clearAppRms(g.appId);
+                        if (success) {
+                            alert(`Đã xóa sạch bộ nhớ đệm của trò chơi "${g.name}"!`);
+                            if (isCurrent && confirm("Trò chơi đang chạy cần khởi động lại để làm mới dữ liệu. Tải lại ngay?")) {
+                                location.reload();
+                            }
+                        } else {
+                            alert("Không thể xóa bộ nhớ đệm lúc này.");
+                        }
+                    }
+                };
+            }
+
+            // Gỡ cài đặt game
+            const btnDelete = card.querySelector('.btn-delete-app');
+            if (btnDelete) {
+                btnDelete.onclick = async (e) => {
+                    e.stopPropagation();
+                    if (confirm(`Bạn có chắc muốn gỡ cài đặt vĩnh viễn trò chơi "${g.name}" khỏi thiết bị không?`)) {
+                        const success = await uninstallApp(g.appId);
+                        if (success) {
+                            alert(`Đã gỡ cài đặt "${g.name}" thành công!`);
+                            if (isCurrent) {
+                                location.href = location.pathname;
+                            } else {
+                                renderGamesModal();
+                            }
+                        } else {
+                            alert("Không thể gỡ cài đặt trò chơi lúc này.");
+                        }
+                    }
+                };
+            }
+
+            card.onclick = () => {
+                if (!isCurrent) {
+                    localStorage.setItem('j2me_last_played_app', g.appId);
+                    location.href = '?app=' + encodeURIComponent(g.appId);
+                } else {
+                    gamesModal.classList.remove('show');
+                }
+            };
+
+            gamesListEl.appendChild(card);
+        });
+    }
+
+    if (btnGamesModal && gamesModal) {
+        btnGamesModal.onclick = () => {
+            gamesModal.classList.add('show');
+            renderGamesModal();
         };
     }
 
@@ -836,14 +1061,43 @@ async function init() {
     globalLib = await cheerpjRunLibrary(cheerpjWebRoot + "/freej2me-web.jar");
     const FreeJ2ME = await globalLib.org.recompile.freej2me.FreeJ2ME;
 
-    // Determine application to launch
+    // Xác định ứng dụng cần khởi chạy (Query param -> LocalStorage persistence -> Empty State)
     let appId = sp.get('app');
-    if (!appId && !sp.get('jar')) {
-        appId = 'Connect4'; // Default starting retro game
+    const isJarParam = Boolean(sp.get('jar'));
+
+    if (!appId && !isJarParam) {
+        const lastApp = localStorage.getItem('j2me_last_played_app');
+        if (lastApp) {
+            appId = lastApp;
+            history.replaceState(null, '', '?app=' + encodeURIComponent(appId));
+        }
     }
+
+    const emptyScreen = document.getElementById('empty-state-screen');
+    const loadingIndicator = document.getElementById('loading-indicator');
+    const btnStopGame = document.getElementById('btn-stop-game');
+    const titleEl = document.getElementById('current-game-title');
+
+    // Nếu không có game nào (truy cập lần đầu hoặc vừa bấm đổi game)
+    if (!appId && !isJarParam) {
+        if (loadingIndicator) loadingIndicator.style.display = 'none';
+        if (emptyScreen) emptyScreen.style.display = 'flex';
+        if (btnStopGame) btnStopGame.style.display = 'none';
+        if (titleEl) titleEl.textContent = 'Chưa chọn game';
+        document.title = 'J2ME Web Emulator - Sẵn sàng chơi game';
+
+        // Tự động chuẩn bị dữ liệu init.zip ở chế độ chờ để danh sách game sẵn sàng
+        ensureAppInstalled(globalLib, 'Connect4').catch(() => {});
+        return;
+    }
+
+    // Có game: ẩn màn hình trống, hiện nút Đổi game
+    if (emptyScreen) emptyScreen.style.display = 'none';
+    if (btnStopGame) btnStopGame.style.display = 'inline-flex';
 
     let args;
     if (appId) {
+        localStorage.setItem('j2me_last_played_app', appId);
         if (loadingText) loadingText.textContent = "Đang nạp dữ liệu game: " + appId + "...";
         await ensureAppInstalled(globalLib, appId);
         args = ['app', appId];

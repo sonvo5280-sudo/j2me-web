@@ -27,8 +27,14 @@
         <button id="btn-load-jar" class="tb-btn primary" title="Tải file .JAR từ máy tính">
           <span>⚡</span> Nạp .JAR
         </button>
+        <button id="btn-stop-game" class="tb-btn" title="Dừng trò chơi hiện tại và quay về màn hình chờ" style="display: none;">
+          <span>⏹️</span> Đổi game
+        </button>
         <button id="btn-toggle-keypad" class="tb-btn" title="Bật/Tắt bàn phím ảo (Nhấn thủ công)">
           <span>⌨️</span> Phím ảo: Bật
+        </button>
+        <button id="btn-wakelock" class="tb-btn" title="Bật/Tắt chống tắt màn hình (Giữ màn hình luôn sáng để treo game 24/7)">
+          <span>🔆</span> Sáng: Bật
         </button>
         <button id="btn-mute" class="tb-btn" title="Bật/Tắt âm thanh">🔊</button>
         <button id="btn-crt" class="tb-btn" title="Bật/Tắt hiệu ứng màn hình quét CRT">📺 CRT</button>
@@ -56,6 +62,34 @@
       <div id="loading-indicator">
         <div class="spinner"></div>
         <div id="loading-text">Đang khởi tạo WebAssembly JVM...</div>
+      </div>
+
+      <!-- Màn hình trạng thái Trống (Empty State) khi chưa chọn game -->
+      <div id="empty-state-screen" class="empty-state-screen" style="display: none;">
+        <div class="empty-card">
+          <div class="empty-icon-pulse">
+            <span class="empty-icon">🎮</span>
+          </div>
+          <h2 class="empty-title">CHƯA CÓ TRÒ CHƠI</h2>
+          <p class="empty-desc">Chọn trò chơi từ kho game có sẵn hoặc nạp file <code>.JAR</code> từ thiết bị của bạn để bắt đầu.</p>
+          
+          <div class="empty-action-group">
+            <button id="btn-empty-games" class="empty-btn primary">
+              <span class="btn-icon">📂</span>
+              <span class="btn-text">Kho Trò Chơi</span>
+            </button>
+            <button id="btn-empty-load-jar" class="empty-btn secondary">
+              <span class="btn-icon">⚡</span>
+              <span class="btn-text">Nạp File .JAR</span>
+            </button>
+          </div>
+
+          <div class="empty-features-banner">
+            <span class="badge-feat">🌐 Full Online Protocol</span>
+            <span class="badge-feat">💾 Tự động lưu khi Reload</span>
+            <span class="badge-feat">🧹 Quản lý & Xóa RMS</span>
+          </div>
+        </div>
       </div>
 
       <!-- Khu vực nhận file Kéo & Thả (Drag & Drop) -->
@@ -125,8 +159,9 @@
         </div>
         <div class="modal-body">
           <div style="font-size: 13px; color: var(--text-muted); line-height: 1.5;">
-            Chọn game có sẵn bên dưới hoặc kéo thả bất kỳ file <code>.jar</code> nào vào màn hình.<br>
-            <span style="color: #4ade80;">🌐 Đã kích hoạt kết nối mạng:</span> Hỗ trợ đầy đủ các game Java Online (Ninja School, Ngọc Rồng, Avatar, Mobi Army...) thông qua WebSocket TCP Proxy.
+            Chọn game bên dưới hoặc kéo thả file <code>.jar</code> vào màn hình.<br>
+            <span style="color: #4ade80;">🌐 Full Online Protocol:</span> Hỗ trợ TCP Socket (<code>socket://</code>), SSL/TLS (<code>ssl://</code>, <code>tls://</code>) và HTTP/HTTPS CORS Proxy.<br>
+            <span style="color: #38bdf8;">⚙️ Tiện ích:</span> Bạn có thể <b>Chơi ngay</b>, <b>Xóa bộ nhớ đệm (RMS)</b> hoặc <b>Gỡ cài đặt</b> từng trò chơi.
           </div>
           <div id="games-list" class="game-list-container"></div>
         </div>

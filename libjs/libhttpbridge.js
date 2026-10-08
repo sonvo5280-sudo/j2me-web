@@ -4,6 +4,13 @@
 // ============================================================================
 
 export default {
+    async Java_pl_zb3_freej2me_bridge_network_HttpBridge_getProxiedUrl(lib, url) {
+        if (!url) return "";
+        if (url.startsWith('/http-proxy') || url.includes('/http-proxy?url=')) return url;
+        const origin = location.origin;
+        return `${origin}/http-proxy?url=${encodeURIComponent(url)}`;
+    },
+
     async Java_pl_zb3_freej2me_bridge_network_HttpBridge_execute(lib, url, method, reqHeaders, reqBody) {
         const proxyUrl = `/http-proxy?url=${encodeURIComponent(url)}`;
         

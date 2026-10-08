@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import net from 'net';
+import tls from 'tls';
 import fs from 'fs';
 import path from 'path';
 import { WebSocketServer } from 'ws';
@@ -42,15 +43,21 @@ function j2meNetworkProxyPlugin() {
           const url = new URL(req.url, 'http://' + req.headers.host);
           const targetHost = url.searchParams.get('host');
           const targetPort = parseInt(url.searchParams.get('port'), 10);
+          const isSsl = url.searchParams.get('ssl') === 'true' || url.searchParams.get('tls') === 'true' || targetPort === 443;
 
           if (!targetHost || isNaN(targetPort)) {
             ws.close(1008, 'Missing host or port');
             return;
           }
 
-          console.log(`[TCP Proxy] Connecting to ${targetHost}:${targetPort}...`);
-          const tcpSocket = net.connect({ host: targetHost, port: targetPort }, () => {
-            console.log(`[TCP Proxy] Connected to ${targetHost}:${targetPort}`);
+          console.log(`[TCP Proxy] Connecting to ${targetHost}:${targetPort} (SSL: ${isSsl})...`);
+          const socketConnector = isSsl ? tls.connect : net.connect;
+          const connectOptions = isSsl
+            ? { host: targetHost, port: targetPort, rejectUnauthorized: false }
+            : { host: targetHost, port: targetPort };
+
+          const tcpSocket = socketConnector(connectOptions, () => {
+            console.log(`[TCP Proxy] Connected to ${targetHost}:${targetPort} (SSL: ${isSsl})`);
           });
 
           tcpSocket.on('data', (chunk) => {
@@ -90,8 +97,18 @@ function j2meNetworkProxyPlugin() {
         }
       });
 
-      // HTTP/HTTPS CORS Proxy middleware
+      // HTTP/HTTPS CORS Proxy middleware with body & headers forwarding
       server.middlewares.use('/http-proxy', async (req, res) => {
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.setHeader('Access-Control-Allow-Methods', 'GET, POST, HEAD, PUT, OPTIONS');
+        res.setHeader('Access-Control-Allow-Headers', '*');
+
+        if (req.method === 'OPTIONS') {
+          res.statusCode = 204;
+          res.end();
+          return;
+        }
+
         try {
           const urlObj = new URL(req.url, 'http://' + req.headers.host);
           const targetUrl = urlObj.searchParams.get('url');
@@ -101,16 +118,37 @@ function j2meNetworkProxyPlugin() {
             return;
           }
 
+          const chunks = [];
+          for await (const chunk of req) {
+            chunks.push(chunk);
+          }
+          const hasBody = chunks.length > 0 && req.method !== 'GET' && req.method !== 'HEAD';
+          const body = hasBody ? Buffer.concat(chunks) : undefined;
+
+          const forwardedHeaders = {};
+          for (const [k, v] of Object.entries(req.headers)) {
+            const lower = k.toLowerCase();
+            if (!['host', 'origin', 'referer', 'connection', 'content-length'].includes(lower)) {
+              forwardedHeaders[k] = v;
+            }
+          }
+          if (!forwardedHeaders['user-agent']) {
+            forwardedHeaders['user-agent'] = 'Nokia6233/05.10 (J2ME-Online/1.0)';
+          }
+
           const fetchRes = await fetch(targetUrl, {
             method: req.method,
-            headers: {
-              'User-Agent': 'Nokia6233/05.10 (J2ME-Online/1.0)',
-            }
+            headers: forwardedHeaders,
+            body: body,
+            redirect: 'follow'
           });
 
           res.statusCode = fetchRes.status;
           fetchRes.headers.forEach((v, k) => {
-            res.setHeader(k, v);
+            const lower = k.toLowerCase();
+            if (!['content-encoding', 'transfer-encoding', 'access-control-allow-origin'].includes(lower)) {
+              res.setHeader(k, v);
+            }
           });
           const buf = await fetchRes.arrayBuffer();
           res.end(Buffer.from(buf));
