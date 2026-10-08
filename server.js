@@ -40,13 +40,15 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    const targetUrl = urlObj.searchParams.get('url');
+    if (!targetUrl) {
+      res.statusCode = 400;
+      res.end('Missing url parameter');
+      return;
+    }
+
     try {
-      const targetUrl = urlObj.searchParams.get('url');
-      if (!targetUrl) {
-        res.statusCode = 400;
-        res.end('Missing url parameter');
-        return;
-      }
+      console.log(`[HTTP Proxy] ${req.method} -> ${targetUrl}`);
 
       // Collect request body for POST/PUT requests
       const chunks = [];
@@ -56,35 +58,47 @@ const server = http.createServer(async (req, res) => {
       const hasBody = chunks.length > 0 && req.method !== 'GET' && req.method !== 'HEAD';
       const body = hasBody ? Buffer.concat(chunks) : undefined;
 
+      // Filter out browser-specific tracking headers, enforce standard J2ME Nokia headers
+      const ignoredHeaders = [
+        'host', 'origin', 'referer', 'connection', 'content-length',
+        'accept-encoding', 'cookie', 'sec-ch-ua', 'sec-ch-ua-mobile',
+        'sec-ch-ua-platform', 'sec-fetch-dest', 'sec-fetch-mode', 'sec-fetch-site'
+      ];
+
       const forwardedHeaders = {};
       for (const [k, v] of Object.entries(req.headers)) {
         const lower = k.toLowerCase();
-        if (!['host', 'origin', 'referer', 'connection', 'content-length'].includes(lower)) {
+        if (!ignoredHeaders.includes(lower)) {
           forwardedHeaders[k] = v;
         }
       }
-      if (!forwardedHeaders['user-agent']) {
-        forwardedHeaders['user-agent'] = 'Nokia6233/05.10 (J2ME-Online/1.0)';
-      }
+
+      // Always enforce standard Nokia J2ME User-Agent so game servers don't block
+      forwardedHeaders['user-agent'] = 'Nokia6233/05.10 (J2ME-Online/1.0)';
+      forwardedHeaders['accept-encoding'] = 'identity';
 
       const fetchRes = await fetch(targetUrl, {
         method: req.method,
         headers: forwardedHeaders,
         body: body,
-        redirect: 'follow'
+        redirect: 'follow',
+        signal: AbortSignal.timeout(15000)
       });
 
       res.statusCode = fetchRes.status;
       fetchRes.headers.forEach((v, k) => {
         const lower = k.toLowerCase();
-        if (!['content-encoding', 'transfer-encoding', 'access-control-allow-origin'].includes(lower)) {
+        if (!['content-encoding', 'transfer-encoding', 'access-control-allow-origin', 'content-length'].includes(lower)) {
           res.setHeader(k, v);
         }
       });
 
       const buf = await fetchRes.arrayBuffer();
+      res.setHeader('Content-Length', buf.byteLength);
       res.end(Buffer.from(buf));
+      console.log(`[HTTP Proxy OK] ${targetUrl} (Status: ${fetchRes.status}, Size: ${buf.byteLength} bytes)`);
     } catch (e) {
+      console.error(`[HTTP Proxy Error] ${targetUrl}:`, e.message);
       res.statusCode = 502;
       res.end(e.message);
     }

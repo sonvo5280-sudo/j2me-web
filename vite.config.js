@@ -109,14 +109,16 @@ function j2meNetworkProxyPlugin() {
           return;
         }
 
+        const urlObj = new URL(req.url, 'http://' + req.headers.host);
+        const targetUrl = urlObj.searchParams.get('url');
+        if (!targetUrl) {
+          res.statusCode = 400;
+          res.end('Missing url parameter');
+          return;
+        }
+
         try {
-          const urlObj = new URL(req.url, 'http://' + req.headers.host);
-          const targetUrl = urlObj.searchParams.get('url');
-          if (!targetUrl) {
-            res.statusCode = 400;
-            res.end('Missing url parameter');
-            return;
-          }
+          console.log(`[Vite HTTP Proxy] ${req.method} -> ${targetUrl}`);
 
           const chunks = [];
           for await (const chunk of req) {
@@ -125,34 +127,43 @@ function j2meNetworkProxyPlugin() {
           const hasBody = chunks.length > 0 && req.method !== 'GET' && req.method !== 'HEAD';
           const body = hasBody ? Buffer.concat(chunks) : undefined;
 
+          const ignoredHeaders = [
+            'host', 'origin', 'referer', 'connection', 'content-length',
+            'accept-encoding', 'cookie', 'sec-ch-ua', 'sec-ch-ua-mobile',
+            'sec-ch-ua-platform', 'sec-fetch-dest', 'sec-fetch-mode', 'sec-fetch-site'
+          ];
+
           const forwardedHeaders = {};
           for (const [k, v] of Object.entries(req.headers)) {
             const lower = k.toLowerCase();
-            if (!['host', 'origin', 'referer', 'connection', 'content-length'].includes(lower)) {
+            if (!ignoredHeaders.includes(lower)) {
               forwardedHeaders[k] = v;
             }
           }
-          if (!forwardedHeaders['user-agent']) {
-            forwardedHeaders['user-agent'] = 'Nokia6233/05.10 (J2ME-Online/1.0)';
-          }
+          forwardedHeaders['user-agent'] = 'Nokia6233/05.10 (J2ME-Online/1.0)';
+          forwardedHeaders['accept-encoding'] = 'identity';
 
           const fetchRes = await fetch(targetUrl, {
             method: req.method,
             headers: forwardedHeaders,
             body: body,
-            redirect: 'follow'
+            redirect: 'follow',
+            signal: AbortSignal.timeout(15000)
           });
 
           res.statusCode = fetchRes.status;
           fetchRes.headers.forEach((v, k) => {
             const lower = k.toLowerCase();
-            if (!['content-encoding', 'transfer-encoding', 'access-control-allow-origin'].includes(lower)) {
+            if (!['content-encoding', 'transfer-encoding', 'access-control-allow-origin', 'content-length'].includes(lower)) {
               res.setHeader(k, v);
             }
           });
           const buf = await fetchRes.arrayBuffer();
+          res.setHeader('Content-Length', buf.byteLength);
           res.end(Buffer.from(buf));
+          console.log(`[Vite HTTP Proxy OK] ${targetUrl} (Status: ${fetchRes.status}, Size: ${buf.byteLength} bytes)`);
         } catch (e) {
+          console.error(`[Vite HTTP Proxy Error] ${targetUrl}:`, e.message);
           res.statusCode = 502;
           res.end(e.message);
         }
