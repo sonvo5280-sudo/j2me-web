@@ -33,6 +33,7 @@ window.evtQueue = evtQueue;
 // ============================================================================
 function autoscale() {
     if (!scaleSet || !screenCtx || !screenCtx.canvas.width) return;
+    if (document.activeElement && document.activeElement.id === 'mobile-text-input') return;
 
     const screenArea = document.getElementById('screen-area');
     if (!screenArea) return;
@@ -819,10 +820,37 @@ function initUIControls() {
             e.preventDefault();
             e.stopPropagation();
 
-            // Mở bàn phím ảo của điện thoại
+            // Mở bàn phím ảo của điện thoại không cuộn trang
             mobileTextInput.value = '';
-            mobileTextInput.focus();
+            mobileTextInput.focus({ preventScroll: true });
+            window.scrollTo(0, 0);
         });
+
+        const resetScroll = () => {
+            window.scrollTo(0, 0);
+            if (document.body) document.body.scrollTop = 0;
+            if (document.documentElement) document.documentElement.scrollTop = 0;
+        };
+
+        mobileTextInput.addEventListener('focus', resetScroll);
+        mobileTextInput.addEventListener('blur', () => {
+            resetScroll();
+            setTimeout(autoscale, 120);
+        });
+
+        window.addEventListener('scroll', () => {
+            if (document.activeElement === mobileTextInput) {
+                resetScroll();
+            }
+        }, { passive: true });
+
+        if (window.visualViewport) {
+            window.visualViewport.addEventListener('scroll', () => {
+                if (document.activeElement === mobileTextInput) {
+                    resetScroll();
+                }
+            });
+        }
 
         // Xử lý khi gõ trên bàn phím ảo điện thoại: tránh multi-tap khi gõ số
         mobileTextInput.addEventListener('input', (e) => {

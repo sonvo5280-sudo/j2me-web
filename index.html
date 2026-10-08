@@ -2,7 +2,7 @@
 <html lang="vi">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover, interactive-widget=overlays-content">
   <title>J2ME Web Emulator - Trình Giả Lập Java Game</title>
   <meta name="description" content="Trình giả lập Java J2ME WebAssembly trên trình duyệt web, chơi game .JAR cổ điển mượt mà không cần cài đặt.">
   <link rel="stylesheet" href="css/style.css">
@@ -106,8 +106,8 @@
          PHẦN DƯỚI: CỤM PHÍM ĐIỀU KHIỂN (KEYPAD TỐI ƯU CẢM ỨNG MỚI)
          ====================================================================== -->
     <footer id="keypad-container" class="keypad-part">
-      <!-- Hidden Input để kích hoạt bàn phím ảo điện thoại khi bấm icon bàn phím -->
-      <input type="text" id="mobile-text-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="text" style="position: absolute; opacity: 0; pointer-events: none; width: 0; height: 0; left: -9999px;">
+      <!-- Hidden Input cố định ở top 0, font-size 16px để chống cuộn/zoom khi mở bàn phím ảo điện thoại -->
+      <input type="text" id="mobile-text-input" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" inputmode="text" style="position: fixed; top: 0; left: 0; width: 1px; height: 1px; opacity: 0; pointer-events: none; border: none; padding: 0; margin: 0; font-size: 16px;">
 
       <div class="keypad-grid-layout">
         <!-- Cánh trái: Phím mềm L & Nút Bàn phím ảo điện thoại ở bên dưới -->

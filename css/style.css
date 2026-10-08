@@ -43,9 +43,10 @@
 }
 
 html, body {
+  position: fixed;
+  inset: 0;
   width: 100%;
   height: 100%;
-  height: 100dvh;
   overflow: hidden;
   overscroll-behavior: none;
   -webkit-overflow-scrolling: touch;
@@ -62,10 +63,10 @@ html, body {
 #app {
   display: flex;
   flex-direction: column;
+  position: fixed;
+  inset: 0;
   width: 100%;
   height: 100%;
-  height: 100dvh;
-  position: relative;
   overflow: hidden;
   overscroll-behavior: none;
   background: radial-gradient(circle at 50% 30%, #151a28 0%, #090b10 100%);
