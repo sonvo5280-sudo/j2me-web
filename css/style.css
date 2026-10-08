@@ -263,9 +263,6 @@ html, body {
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7), 0 0 20px rgba(0, 242, 254, 0.1);
   outline: none;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  transform: translateZ(0);
-  will-change: transform;
-  contain: strict;
 }
 
 #display:focus {
@@ -906,12 +903,6 @@ body.crt-enabled .crt-overlay {
   #display {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5) !important;
     border-radius: 4px !important;
-    transform: translateZ(0);
-    contain: strict;
-  }
-
-  .screen-wrapper {
-    contain: strict;
   }
 
   .keypad-wing, .keypad-center-dpad {

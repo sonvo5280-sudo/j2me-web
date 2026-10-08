@@ -412,7 +412,13 @@ async function ensureAppFpsConfig(lib, appId) {
         if (blob) {
             content = await blob.text();
         }
-        const lines = content.split('\n').filter(l => l.trim() && !l.startsWith('fps:'));
+        let lines = content ? content.split('\n').filter(l => l.trim() && !l.startsWith('fps:')) : [];
+        if (!lines.some(l => l.startsWith('width:'))) lines.push('width:240');
+        if (!lines.some(l => l.startsWith('height:'))) lines.push('height:320');
+        if (!lines.some(l => l.startsWith('phone:'))) lines.push('phone:Nokia');
+        if (!lines.some(l => l.startsWith('sound:'))) lines.push('sound:on');
+        if (!lines.some(l => l.startsWith('rotate:'))) lines.push('rotate:off');
+        if (!lines.some(l => l.startsWith('dgFormat:'))) lines.push('dgFormat:4444');
         lines.push('fps:' + targetFps);
         const fw = await new (await lib.java.io.FileWriter)(confFile);
         await fw.write(lines.join('\n') + '\n');
@@ -1165,10 +1171,7 @@ async function init() {
     if (loadingText) loadingText.textContent = "Đang khởi tạo WebAssembly JVM (CheerpJ)...";
 
     display = document.getElementById('display');
-    screenCtx = display.getContext('2d', {
-        alpha: false,
-        desynchronized: true
-    });
+    screenCtx = display.getContext('2d');
 
     setListeners();
     initUIControls();
@@ -1184,7 +1187,6 @@ async function init() {
     // Initialize CheerpJ WebAssembly Runtime
     await cheerpjInit({
         enableDebug: false,
-        preloadResources: [cheerpjWebRoot + "/freej2me-web.jar"],
         natives: {
             ...canvasFontNatives,
             ...canvasGraphicsNatives,
