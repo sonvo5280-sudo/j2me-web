@@ -36,15 +36,15 @@ function autoscale() {
     const screenArea = document.getElementById('screen-area');
     if (!screenArea) return;
 
-    const pad = 16;
-    const availW = Math.max(120, screenArea.clientWidth - pad);
-    const availH = Math.max(120, screenArea.clientHeight - pad);
+    const pad = 6;
+    const availW = Math.max(60, screenArea.clientWidth - pad);
+    const availH = Math.max(60, screenArea.clientHeight - pad);
 
     const canvasW = screenCtx.canvas.width || 240;
     const canvasH = screenCtx.canvas.height || 320;
 
     let scale = Math.min(availW / canvasW, availH / canvasH);
-    if (scale < 1) scale = 1;
+    if (scale <= 0) scale = 1;
 
     display.style.width = Math.round(canvasW * scale) + 'px';
     display.style.height = Math.round(canvasH * scale) + 'px';
@@ -355,6 +355,10 @@ function setListeners() {
     });
 
     window.addEventListener('resize', autoscale);
+    window.addEventListener('orientationchange', () => setTimeout(autoscale, 150));
+    if (window.screen && window.screen.orientation) {
+        window.screen.orientation.addEventListener('change', () => setTimeout(autoscale, 150));
+    }
     initKbdListeners();
 }
 
@@ -666,7 +670,7 @@ function initUIControls() {
     async function applyWakeLock() {
         if (!('wakeLock' in navigator)) {
             if (btnWakeLock) {
-                btnWakeLock.innerHTML = '<span>🔆</span> Sáng: K.Hỗ trợ';
+                btnWakeLock.innerHTML = '<span>🔆</span> <span class="btn-text">Sáng: K.Hỗ trợ</span>';
                 btnWakeLock.title = "Trình duyệt này không hỗ trợ Screen Wake Lock API";
             }
             return;
@@ -680,7 +684,7 @@ function initUIControls() {
                     });
                 }
                 if (btnWakeLock) {
-                    btnWakeLock.innerHTML = '<span>🔆</span> Sáng: Bật';
+                    btnWakeLock.innerHTML = '<span>🔆</span> <span class="btn-text">Sáng: Bật</span>';
                     btnWakeLock.classList.add('active');
                     btnWakeLock.title = "Chống tắt màn hình đang BẬT: Màn hình sẽ luôn sáng để treo game";
                 }
@@ -695,7 +699,7 @@ function initUIControls() {
                 wakeLockSentinel = null;
             }
             if (btnWakeLock) {
-                btnWakeLock.innerHTML = '<span>🌙</span> Sáng: Tắt';
+                btnWakeLock.innerHTML = '<span>🌙</span> <span class="btn-text">Sáng: Tắt</span>';
                 btnWakeLock.classList.remove('active');
                 btnWakeLock.title = "Chống tắt màn hình đang TẮT: Thiết bị sẽ tự tắt màn hình theo cài đặt máy";
             }
@@ -732,7 +736,7 @@ function initUIControls() {
         setVirtualKbdDisabled(disabled);
         document.body.classList.toggle('keypad-disabled', disabled);
         if (btnToggleKeypad) {
-            btnToggleKeypad.innerHTML = disabled ? '<span>⌨️</span> Phím ảo: Tắt' : '<span>⌨️</span> Phím ảo: Bật';
+            btnToggleKeypad.innerHTML = disabled ? '<span>⌨️</span> <span class="btn-text">Phím: Tắt</span>' : '<span>⌨️</span> <span class="btn-text">Phím: Bật</span>';
             btnToggleKeypad.classList.toggle('active', disabled);
             btnToggleKeypad.blur();
         }

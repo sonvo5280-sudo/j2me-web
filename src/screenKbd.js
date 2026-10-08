@@ -47,6 +47,9 @@ export function initKbdListeners() {
             if (!isPressed) {
                 isPressed = true;
                 btn.classList.add('active');
+                if (navigator.vibrate) {
+                    try { navigator.vibrate(12); } catch (_) {}
+                }
                 if (handleKey) {
                     handleKey(true, keyName);
                 }
