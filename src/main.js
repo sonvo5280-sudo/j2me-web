@@ -305,7 +305,11 @@ function setListeners() {
         e.preventDefault();
     });
 
-    // Mobile touch events on canvas
+    // Mobile touch events on canvas (Đã tối ưu hóa chống spam event queue)
+    let lastTouchX = -1;
+    let lastTouchY = -1;
+    let lastDragTime = 0;
+
     display.addEventListener('touchstart', async e => {
         display.focus();
         noMouse = true;
@@ -314,25 +318,44 @@ function setListeners() {
         const scaleX = screenCtx.canvas.width / rect.width;
         const scaleY = screenCtx.canvas.height / rect.height;
 
+        lastTouchX = Math.floor((touch.clientX - rect.left) * scaleX);
+        lastTouchY = Math.floor((touch.clientY - rect.top) * scaleY);
+        lastDragTime = performance.now();
+
         evtQueue.queueEvent({
             kind: 'pointerpressed',
-            x: Math.floor((touch.clientX - rect.left) * scaleX),
-            y: Math.floor((touch.clientY - rect.top) * scaleY),
+            x: lastTouchX,
+            y: lastTouchY,
         });
         e.preventDefault();
     }, { passive: false });
 
     display.addEventListener('touchmove', async e => {
         noMouse = true;
+        const now = performance.now();
+        if (now - lastDragTime < 16) {
+            e.preventDefault();
+            return;
+        }
         const rect = display.getBoundingClientRect();
         const touch = e.changedTouches[0];
         const scaleX = screenCtx.canvas.width / rect.width;
         const scaleY = screenCtx.canvas.height / rect.height;
+        const x = Math.floor((touch.clientX - rect.left) * scaleX);
+        const y = Math.floor((touch.clientY - rect.top) * scaleY);
+
+        if (Math.abs(x - lastTouchX) < 2 && Math.abs(y - lastTouchY) < 2) {
+            e.preventDefault();
+            return;
+        }
+        lastTouchX = x;
+        lastTouchY = y;
+        lastDragTime = now;
 
         evtQueue.queueEvent({
             kind: 'pointerdragged',
-            x: Math.floor((touch.clientX - rect.left) * scaleX),
-            y: Math.floor((touch.clientY - rect.top) * scaleY),
+            x: x,
+            y: y,
         });
         e.preventDefault();
     }, { passive: false });
@@ -779,16 +802,22 @@ function initUIControls() {
         };
     }
 
-    // FPS Selector (30 / 45 / 60 FPS, mặc định là 30 FPS)
+    // FPS Selector (30 / 45 / 60 / Max FPS)
     const btnFps = document.getElementById('btn-fps');
     const fpsLabel = document.getElementById('fps-label');
-    const FPS_OPTIONS = [30, 45, 60];
+    const FPS_OPTIONS = [30, 45, 60, 0];
     let currentFps = parseInt(localStorage.getItem('j2me_target_fps') || '30', 10);
     if (!FPS_OPTIONS.includes(currentFps)) currentFps = 30;
 
     function updateFpsDisplay(fps) {
-        if (fpsLabel) fpsLabel.textContent = fps + ' FPS';
-        if (btnFps) btnFps.title = `Tốc độ khung hình: ${fps} FPS (Bấm để chuyển 30 / 45 / 60 FPS)`;
+        if (fpsLabel) {
+            fpsLabel.textContent = fps === 0 ? 'Max FPS' : fps + ' FPS';
+        }
+        if (btnFps) {
+            btnFps.title = fps === 0 
+                ? 'Tốc độ khung hình: Max FPS (Không giới hạn độ trễ - Mượt nhất trên điện thoại)' 
+                : `Tốc độ khung hình: ${fps} FPS (Bấm để chuyển 30 / 45 / 60 / Max FPS)`;
+        }
     }
     updateFpsDisplay(currentFps);
 
@@ -1136,7 +1165,10 @@ async function init() {
     if (loadingText) loadingText.textContent = "Đang khởi tạo WebAssembly JVM (CheerpJ)...";
 
     display = document.getElementById('display');
-    screenCtx = display.getContext('2d');
+    screenCtx = display.getContext('2d', {
+        alpha: false,
+        desynchronized: true
+    });
 
     setListeners();
     initUIControls();
@@ -1152,6 +1184,7 @@ async function init() {
     // Initialize CheerpJ WebAssembly Runtime
     await cheerpjInit({
         enableDebug: false,
+        preloadResources: [cheerpjWebRoot + "/freej2me-web.jar"],
         natives: {
             ...canvasFontNatives,
             ...canvasGraphicsNatives,

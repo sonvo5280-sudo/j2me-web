@@ -34,6 +34,8 @@ export function initKbdListeners() {
 
         let isPressed = false;
 
+        let lastVibrateTime = 0;
+
         const press = (e) => {
             if (isKbdDisabled) return; // Chặn hoàn toàn thao tác khi bàn phím ảo bị tắt
             if (e) {
@@ -43,8 +45,10 @@ export function initKbdListeners() {
             if (!isPressed) {
                 isPressed = true;
                 btn.classList.add('active');
-                if (navigator.vibrate) {
-                    try { navigator.vibrate(12); } catch (_) {}
+                const now = performance.now();
+                if (navigator.vibrate && now - lastVibrateTime > 60) {
+                    lastVibrateTime = now;
+                    try { navigator.vibrate(8); } catch (_) {}
                 }
                 if (handleKey) {
                     handleKey(true, keyName);

@@ -263,6 +263,9 @@ html, body {
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7), 0 0 20px rgba(0, 242, 254, 0.1);
   outline: none;
   border: 1px solid rgba(255, 255, 255, 0.1);
+  transform: translateZ(0);
+  will-change: transform;
+  contain: strict;
 }
 
 #display:focus {
@@ -889,8 +892,37 @@ body.crt-enabled .crt-overlay {
 }
 
 /* ==========================================================================
-   Responsive Mobile Optimizations
+   Responsive Mobile Optimizations & High Performance Boost
    ========================================================================== */
+
+@media (max-width: 768px) {
+  /* Tắt các hiệu ứng blur / backdrop-filter ngốn GPU trên chip di động */
+  #top-toolbar {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+    background: #0f131c !important;
+  }
+
+  #display {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5) !important;
+    border-radius: 4px !important;
+    transform: translateZ(0);
+    contain: strict;
+  }
+
+  .screen-wrapper {
+    contain: strict;
+  }
+
+  .keypad-wing, .keypad-center-dpad {
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+
+  .key {
+    transform: translateZ(0);
+  }
+}
 
 /* 1. Màn hình điện thoại dọc (Mobile Portrait < 640px) */
 @media (max-width: 640px) {
