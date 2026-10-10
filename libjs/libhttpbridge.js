@@ -12,7 +12,7 @@ function getHttpProxyBase() {
     if (isLocalBackend) {
         return location.origin;
     }
-    return 'https://j2me-proxy.sonvo5280.workers.dev';
+    return 'https://wines-compared-ending-intake.trycloudflare.com';
 }
 
 export default {

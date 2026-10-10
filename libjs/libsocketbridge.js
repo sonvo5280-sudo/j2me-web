@@ -134,7 +134,7 @@ function getProxyBase() {
     if (isLocalBackend) {
         return location.host;
     }
-    return 'j2me-proxy.sonvo5280.workers.dev';
+    return 'wines-compared-ending-intake.trycloudflare.com';
 }
 
 async function createSocketConnection(host, port, isSsl = false) {
