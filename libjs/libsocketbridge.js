@@ -96,7 +96,7 @@ class SocketConnectionState {
 }
 
 function copyBytesToJava(javaByteArray, targetOff, srcBytes, srcOff, count) {
-    if (javaByteArray && javaByteArray.buffer instanceof ArrayBuffer) {
+    if (ArrayBuffer.isView(javaByteArray) || (javaByteArray && javaByteArray.buffer instanceof ArrayBuffer)) {
         const targetView = new Uint8Array(javaByteArray.buffer, (javaByteArray.byteOffset || 0) + targetOff, count);
         targetView.set(srcBytes.subarray(srcOff, srcOff + count));
         return;
@@ -107,8 +107,9 @@ function copyBytesToJava(javaByteArray, targetOff, srcBytes, srcOff, count) {
 }
 
 function extractBytesFromJava(javaByteArray, off, len) {
-    if (javaByteArray && javaByteArray.buffer instanceof ArrayBuffer) {
-        return new Uint8Array(javaByteArray.buffer, (javaByteArray.byteOffset || 0) + off, len);
+    if (ArrayBuffer.isView(javaByteArray) || (javaByteArray && javaByteArray.buffer instanceof ArrayBuffer)) {
+        const view = new Uint8Array(javaByteArray.buffer, (javaByteArray.byteOffset || 0) + off, len);
+        return new Uint8Array(view); // Clones into isolated buffer so subsequent Java mutations do not corrupt the packet
     }
     const u8 = new Uint8Array(len);
     for (let i = 0; i < len; i++) {
@@ -157,9 +158,12 @@ async function createSocketConnection(host, port, isSsl = false) {
                 resolve(id);
             };
 
-            ws.onmessage = (event) => {
+            ws.onmessage = async (event) => {
                 if (event.data instanceof ArrayBuffer) {
                     state.pushData(new Uint8Array(event.data));
+                } else if (event.data instanceof Blob) {
+                    const buf = await event.data.arrayBuffer();
+                    state.pushData(new Uint8Array(buf));
                 } else if (typeof event.data === 'string') {
                     try {
                         const parsed = JSON.parse(event.data);
