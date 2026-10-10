@@ -21,6 +21,7 @@ class SocketConnectionState {
 
         // Waiting readers (Java threads waiting for socket data)
         this.pendingReaders = [];
+        this.pingTimer = null;
     }
 
     pushData(u8) {
@@ -85,6 +86,10 @@ class SocketConnectionState {
     close() {
         this.isClosed = true;
         this.isOpen = false;
+        if (this.pingTimer) {
+            clearInterval(this.pingTimer);
+            this.pingTimer = null;
+        }
         if (this.ws) {
             try {
                 this.ws.close();
@@ -155,6 +160,18 @@ async function createSocketConnection(host, port, isSsl = false) {
                 hasOpened = true;
                 state.isOpen = true;
                 console.log(`[SocketBridge] Online connection established to ${host}:${port} (SSL: ${Boolean(isSsl)}, ID: ${id})`);
+
+                // Keepalive heartbeat ping every 20 seconds to prevent edge idle timeouts
+                state.pingTimer = setInterval(() => {
+                    if (state.isClosed || !state.ws || state.ws.readyState !== WebSocket.OPEN) {
+                        clearInterval(state.pingTimer);
+                        return;
+                    }
+                    try {
+                        state.ws.send(JSON.stringify({ type: 'ping' }));
+                    } catch (_) {}
+                }, 20000);
+
                 resolve(id);
             };
 
@@ -167,7 +184,13 @@ async function createSocketConnection(host, port, isSsl = false) {
                 } else if (typeof event.data === 'string') {
                     try {
                         const parsed = JSON.parse(event.data);
-                        if (parsed.type === 'ready') return;
+                        if (parsed.type === 'ready' || parsed.type === 'pong') return;
+                        if (parsed.type === 'ping') {
+                            if (state.ws && state.ws.readyState === WebSocket.OPEN) {
+                                state.ws.send(JSON.stringify({ type: 'pong' }));
+                            }
+                            return;
+                        }
                     } catch (_) {}
                     const enc = new TextEncoder().encode(event.data);
                     state.pushData(enc);
