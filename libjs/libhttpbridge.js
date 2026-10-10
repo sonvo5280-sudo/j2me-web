@@ -27,7 +27,9 @@ export default {
         const base = getHttpProxyBase();
         const proxyUrl = `${base}/http-proxy?url=${encodeURIComponent(url)}`;
         
-        const headers = {};
+        const headers = {
+            'Bypass-Tunnel-Reminder': 'true'
+        };
         if (reqHeaders && reqHeaders.length) {
             for (let i = 0; i < reqHeaders.length; i += 2) {
                 headers[reqHeaders[i]] = reqHeaders[i + 1];

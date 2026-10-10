@@ -145,7 +145,6 @@ wss.on('connection', (ws, req) => {
     });
 
     ws.on('message', (data) => {
-      // Intercept string heartbeat pings so they don't pollute game data
       if (typeof data === 'string' || (data instanceof Buffer && data.length < 50 && data.toString().startsWith('{'))) {
         try {
           const parsed = JSON.parse(data.toString());
@@ -182,10 +181,25 @@ wss.on('connection', (ws, req) => {
   }
 });
 
-server.listen(PORT, () => {
+server.listen(PORT, async () => {
   console.log(`\n======================================================`);
   console.log(`🚀 J2ME Dedicated Proxy Server is running on port ${PORT}`);
   console.log(`👉 http://localhost:${PORT}`);
   console.log(`👉 ws://localhost:${PORT}/tcp-proxy`);
   console.log(`======================================================\n`);
+
+  try {
+    const { default: localtunnel } = await import('localtunnel');
+    console.log('🔄 Đang mở đường truyền ra Internet (localtunnel)...');
+    const tunnel = await localtunnel({ port: PORT });
+    console.log(`\n🎉 ĐÃ CÓ LINK PROXY CÔNG KHAI CHO BẠN:`);
+    console.log(`👉 ${tunnel.url}`);
+    console.log(`\n(Copy link trên gửi lại cho trợ lý là xong!)\n`);
+
+    tunnel.on('close', () => {
+      console.log('⚠️ Tunnel đã đóng');
+    });
+  } catch (err) {
+    console.log('💡 Muốn có link internet, hãy chạy: npm install localtunnel');
+  }
 });
