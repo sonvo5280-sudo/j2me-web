@@ -120,14 +120,27 @@ function extractBytesFromJava(javaByteArray, off, len) {
 const activeSockets = new Map();
 let nextSocketId = 1;
 
+function getProxyBase() {
+    const custom = localStorage.getItem('j2me_custom_proxy');
+    if (custom) return custom.replace(/^https?:\/\//, '').replace(/^wss?:\/\//, '').replace(/\/$/, '');
+
+    const isLocalBackend = (location.hostname === 'localhost' || location.hostname === '127.0.0.1') && location.port === '7860';
+    if (isLocalBackend) {
+        return location.host;
+    }
+    return 'j2me-proxy.sonvo5280.workers.dev';
+}
+
 async function createSocketConnection(host, port, isSsl = false) {
     const id = nextSocketId++;
     const state = new SocketConnectionState(id, host, port);
     activeSockets.set(id, state);
 
-    const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const proxyHost = getProxyBase();
+    const isLocal = proxyHost.startsWith('localhost') || proxyHost.startsWith('127.0.0.1');
+    const wsProtocol = isLocal ? (location.protocol === 'https:' ? 'wss:' : 'ws:') : 'wss:';
     const sslParam = isSsl ? '&ssl=true' : '';
-    const wsUrl = `${protocol}//${location.host}/tcp-proxy?host=${encodeURIComponent(host)}&port=${port}${sslParam}`;
+    const wsUrl = `${wsProtocol}//${proxyHost}/tcp-proxy?host=${encodeURIComponent(host)}&port=${port}${sslParam}`;
 
     return new Promise((resolve, reject) => {
         try {

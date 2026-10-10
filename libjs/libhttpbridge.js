@@ -3,16 +3,29 @@
 // Enables J2ME MIDlets to execute HTTP/HTTPS requests through the proxy.
 // ============================================================================
 
+function getHttpProxyBase() {
+    const custom = localStorage.getItem('j2me_custom_proxy');
+    if (custom) {
+        return custom.startsWith('http') ? custom.replace(/\/$/, '') : `https://${custom.replace(/\/$/, '')}`;
+    }
+    const isLocalBackend = (location.hostname === 'localhost' || location.hostname === '127.0.0.1') && location.port === '7860';
+    if (isLocalBackend) {
+        return location.origin;
+    }
+    return 'https://j2me-proxy.sonvo5280.workers.dev';
+}
+
 export default {
     async Java_pl_zb3_freej2me_bridge_network_HttpBridge_getProxiedUrl(lib, url) {
         if (!url) return "";
-        if (url.startsWith('/http-proxy') || url.includes('/http-proxy?url=')) return url;
-        const origin = location.origin;
-        return `${origin}/http-proxy?url=${encodeURIComponent(url)}`;
+        if (url.includes('/http-proxy?url=')) return url;
+        const base = getHttpProxyBase();
+        return `${base}/http-proxy?url=${encodeURIComponent(url)}`;
     },
 
     async Java_pl_zb3_freej2me_bridge_network_HttpBridge_execute(lib, url, method, reqHeaders, reqBody) {
-        const proxyUrl = `/http-proxy?url=${encodeURIComponent(url)}`;
+        const base = getHttpProxyBase();
+        const proxyUrl = `${base}/http-proxy?url=${encodeURIComponent(url)}`;
         
         const headers = {};
         if (reqHeaders && reqHeaders.length) {
